@@ -122,7 +122,7 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
     # Train the model
-    num_epochs = 10
+    num_epochs = 2
 
     for epoch in range(num_epochs):
         model.train()
@@ -157,3 +157,5 @@ if __name__ == '__main__':
 
     # Save the model
     torch.save(model.state_dict(), 'food_model_combined_v1.pth')
+
+# %%

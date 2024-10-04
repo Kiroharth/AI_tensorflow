@@ -22,4 +22,4 @@ for i, class_name in enumerate(all_classes, 1):
 # Optionally, save to a file
 with open('food_classes.txt', 'w') as f:
     for class_name in all_classes:
-        f.write(f"'{class_name}'\n")
+        f.write(f"'{class_name}',\n")
