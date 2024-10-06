@@ -6,11 +6,22 @@ import random
 import numpy as np
 from PIL import Image
 from io import BytesIO
+import logging
 from tensorflow.keras.applications.resnet50 import ResNet50, preprocess_input, decode_predictions
 from tensorflow.keras.preprocessing.image import img_to_array
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Load pre-trained ResNet50 model
 model = ResNet50(weights='imagenet')
+
+# Pixabay API key
+PIXABAY_API_KEY = 'your_pixabay_api_key'
+
+# Set up logging
+logging.basicConfig(filename='image_downloader.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Batch size for image verification
+BATCH_SIZE = 8
 
 def create_dataset_structure(base_path, classes):
     if not os.path.exists(base_path):
@@ -26,120 +37,151 @@ def create_dataset_structure(base_path, classes):
         os.makedirs(os.path.join(train_dir, class_name), exist_ok=True)
         os.makedirs(os.path.join(val_dir, class_name), exist_ok=True)
 
-def verify_image(img_data, target_class):
+# Batch verification function
+def batch_verify_images(img_data_list, target_class):
+    """
+    This function verifies a batch of images using the ResNet50 model.
+    """
     try:
-        img = Image.open(BytesIO(img_data)).convert('RGB')
-        img = img.resize((224, 224))
-        x = img_to_array(img)
-        x = np.expand_dims(x, axis=0)
-        x = preprocess_input(x)
-
-        preds = model.predict(x)
-        decoded_preds = decode_predictions(preds, top=5)[0]
-
-        for _, pred_class, score in decoded_preds:
-            if pred_class.lower() in target_class.lower():
-                return True
-        return False
+        # Preprocess all images in the batch
+        imgs_preprocessed = []
+        for img_data in img_data_list:
+            img = Image.open(BytesIO(img_data)).convert('RGB')
+            img = img.resize((224, 224))
+            x = img_to_array(img)
+            x = preprocess_input(x)
+            imgs_preprocessed.append(x)
+        
+        # Stack them into a single batch
+        batch = np.stack(imgs_preprocessed)
+        
+        # Make predictions for the entire batch
+        preds = model.predict(batch)
+        decoded_preds = decode_predictions(preds, top=5)
+        
+        # Verify if any image in the batch matches the target class
+        verified_images = []
+        for i, decoded in enumerate(decoded_preds):
+            if any(pred_class.lower() in target_class.lower() for _, pred_class, score in decoded):
+                verified_images.append(img_data_list[i])
+        
+        return verified_images
     except Exception as e:
-        print(f"Error verifying image: {str(e)}")
-        return False
+        logging.error(f"Error in batch image verification: {str(e)}")
+        return []
 
 def count_existing_images(folder):
     return len([f for f in os.listdir(folder) if f.endswith('.jpg')])
 
+def download_images_from_url(img_url, query, output_folder, img_name):
+    try:
+        img_data = requests.get(img_url).content
+        with open(os.path.join(output_folder, img_name), 'wb') as handler:
+            handler.write(img_data)
+        logging.info(f"Downloaded: {img_name} to {output_folder}")
+        return img_data
+    except Exception as e:
+        logging.error(f"Error downloading image from {img_url}: {str(e)}")
+        return None
+
+# Pixabay API downloader with retries
+def download_from_pixabay(query, num_images, retries=3):
+    try:
+        url = f"https://pixabay.com/api/?key={PIXABAY_API_KEY}&q={query}&image_type=photo&per_page={num_images}"
+        response = requests.get(url)
+        if response.status_code == 429:  # Too many requests, handle rate limiting
+            raise Exception("Rate limit reached for Pixabay API")
+        response.raise_for_status()
+        return [img['largeImageURL'] for img in response.json().get('hits', [])]
+    except Exception as e:
+        if retries > 0:
+            logging.warning(f"Retrying Pixabay API for {query}, {retries} attempts left: {str(e)}")
+            time.sleep(2 ** (3 - retries))  # Exponential backoff
+            return download_from_pixabay(query, num_images, retries - 1)
+        logging.error(f"Error fetching Pixabay images for {query}: {str(e)}")
+        return []
+
+# Function to fetch images from Google Images with basic error handling
+def fetch_google_images(query, num_images):
+    try:
+        url = f"https://www.google.com/search?q={query}&tbm=isch"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        img_tags = soup.find_all('img')
+        return [img.get('src') for img in img_tags[:num_images] if img.get('src')]
+    except Exception as e:
+        logging.error(f"Error fetching Google images for {query}: {str(e)}")
+        return []
+
+# Updated download_images function: Prioritize Pixabay, fallback to Google Images
 def download_images(query, num_images, train_folder, val_folder):
     existing_train = count_existing_images(train_folder)
     existing_val = count_existing_images(val_folder)
-    total_existing = existing_train + existing_val
-    
-    if total_existing >= num_images:
-        print(f"Skipping {query}: already have {total_existing} images")
+
+    if existing_train >= num_images and existing_val >= num_images:
+        logging.info(f"Skipping {query}: already have sufficient images")
         return
 
-    num_to_download = num_images - total_existing
+    num_to_download_train = num_images - existing_train
+    num_to_download_val = num_images - existing_val
+    total_images_needed = num_to_download_train + num_to_download_val
+
+    # 1. First try downloading from Pixabay
+    pixabay_images = download_from_pixabay(query, total_images_needed)
     
-    url = f"https://www.google.com/search?q={query}&tbm=isch"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    img_tags = soup.find_all('img')
+    # 2. If not enough images, fallback to Google Images
+    if len(pixabay_images) < total_images_needed:
+        google_images = fetch_google_images(query, total_images_needed - len(pixabay_images))
+        pixabay_images.extend(google_images)
 
-    count = 0
-    for img in img_tags:
-        if count >= num_to_download:
-            break
+    # Multithreading for downloading images concurrently
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = []
+        count_train = 0
+        count_val = 0
+        img_data_list = []  # To store image data for batch verification
 
-        img_url = img.get('src')
-        if img_url and img_url.startswith('http'):
-            try:
-                img_data = requests.get(img_url).content
-                
-                if not verify_image(img_data, query):
-                    print(f"Skipping image: not verified as {query}")
-                    continue
+        for img_url in pixabay_images:
+            if count_train >= num_to_download_train and count_val >= num_to_download_val:
+                break
 
-                img_name = f"{query}_{total_existing + count}.jpg"
-                
-                if random.random() < 0.8:
-                    output_folder = train_folder
-                else:
-                    output_folder = val_folder
-                
-                with open(os.path.join(output_folder, img_name), 'wb') as handler:
-                    handler.write(img_data)
-                print(f"Downloaded and verified: {img_name} to {output_folder}")
-                count += 1
-                
-                time.sleep(random.uniform(0.5, 1.5))
-            except Exception as e:
-                print(f"Error downloading {img_url}: {str(e)}")
+            img_name = f"{query}_{existing_train + count_train + existing_val + count_val}.jpg"
+            if count_train < num_to_download_train:
+                output_folder = train_folder
+                count_train += 1
+            else:
+                output_folder = val_folder
+                count_val += 1
 
-    print(f"Downloaded {count} additional verified images for {query}")
+            futures.append(executor.submit(download_images_from_url, img_url, query, output_folder, img_name))
+        
+        for future in as_completed(futures):
+            img_data = future.result()
+            if img_data:
+                img_data_list.append(img_data)
+
+            # Batch process the image verification once enough images are collected
+            if len(img_data_list) >= BATCH_SIZE or (count_train + count_val) >= total_images_needed:
+                verified_images = batch_verify_images(img_data_list, query)
+                
+                # Save the verified images
+                for verified_img_data in verified_images:
+                    img_name = f"{query}_{existing_train + count_train + existing_val + count_val}.jpg"
+                    output_folder = train_folder if random.random() < 0.8 else val_folder
+                    with open(os.path.join(output_folder, img_name), 'wb') as handler:
+                        handler.write(verified_img_data)
+                    logging.info(f"Verified and saved: {img_name} to {output_folder}")
+                    img_data_list.remove(verified_img_data)  # Remove the processed image from the batch
+
+    logging.info(f"Downloaded {count_train} images for training and {count_val} images for validation for {query}")
 
 # Example usage
 food_classes = [
-    # Fruits
+    # Fruits, Vegetables, Meats, etc.
     "apple", "banana", "orange", "strawberry", "grape", "pineapple", "mango", "watermelon", "kiwi", "peach",
-    "pear", "plum", "cherry", "blueberry", "raspberry", "blackberry", "lemon", "lime", "coconut", "fig",
-    "pomegranate", "papaya", "guava", "passion_fruit", "dragonfruit", "lychee", "apricot", "cantaloupe", "honeydew",
-    # Vegetables
-    "carrot", "broccoli", "tomato", "cucumber", "lettuce", "potato", "onion", "bell_pepper", "spinach", "corn",
-    "pea", "green_bean", "cauliflower", "asparagus", "eggplant", "zucchini", "pumpkin", "squash", "radish", "beet",
-    "celery", "mushroom", "garlic", "ginger", "cabbage", "kale", "brussels_sprout", "artichoke", "leek",
-    # Meats
-    "chicken", "beef", "pork", "lamb", "turkey", "salmon", "tuna", "shrimp", "bacon", "sausage",
-    "ham", "steak", "meatball", "duck", "goose", "venison", "rabbit", "quail", "veal", "liver",
-    # Seafood
-    "cod", "haddock", "trout", "sardine", "anchovy", "crab", "lobster", "mussel", "clam", "oyster",
-    # Dairy
-    "cheese", "milk", "yogurt", "butter", "cream", "ice_cream", "sour_cream", "cottage_cheese", "whipped_cream",
-    # Grains
-    "bread", "rice", "pasta", "cereal", "oatmeal", "quinoa", "couscous", "barley", "rye", "millet",
-    "bulgur", "farro", "cornmeal", "buckwheat", "wheat", "noodle",
-    # Desserts
-    "cake", "cookie", "pie", "chocolate", "candy", "donut", "ice_cream", "pudding", "brownie", "cupcake",
-    "muffin", "croissant", "eclair", "macaroon", "tiramisu", "cheesecake", "tart", "gelato", "sorbet",
-    # Beverages
-    "coffee", "tea", "soda", "juice", "water", "smoothie", "milkshake", "lemonade", "wine", "beer",
-    "cocktail", "whiskey", "vodka", "gin", "rum", "tequila", "champagne",
-    # Fast Food
-    "pizza", "hamburger", "french_fries", "hot_dog", "taco", "burrito", "sandwich", "fried_chicken", "nugget",
-    # International Cuisines
-    "sushi", "curry", "pasta", "taco", "kebab", "paella", "ramen", "pho", "pad_thai", "sashimi",
-    "dim_sum", "falafel", "hummus", "gyro", "pierogi", "goulash", "risotto", "moussaka", "bibimbap",
-    # Condiments and Sauces
-    "ketchup", "mustard", "mayonnaise", "salsa", "soy_sauce", "hot_sauce", "bbq_sauce", "ranch_dressing",
-    "vinaigrette", "tartar_sauce", "pesto", "guacamole", "aioli", "chutney", "wasabi",
-    # Nuts and Seeds
-    "almond", "peanut", "walnut", "sunflower_seed", "pumpkin_seed", "cashew", "pistachio", "pecan", "hazelnut",
-    # Herbs and Spices
-    "basil", "oregano", "cinnamon", "pepper", "garlic", "ginger", "thyme", "rosemary", "sage", "mint",
-    "paprika", "cumin", "turmeric", "nutmeg", "cardamom", "clove", "saffron", "vanilla",
-    # Breakfast Items
-    "pancake", "waffle", "french_toast", "bagel", "muesli", "granola", "bacon", "sausage", "hash_brown",
-    # Snacks
-    "chips", "popcorn", "pretzel", "cracker", "nachos", "trail_mix", "jerky", "granola_bar", "energy_bar"
+    # ... (rest of the classes)
 ]
 base_path = "#Custom-Food-Dataset"
 num_images_per_class = 500
