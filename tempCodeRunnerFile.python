@@ -1,5 +1,0 @@
-import tensorflow_datasets as tfds
-
-# List all datasets
-datasets_list = tfds.list_builders()
-print(datasets_list)
