@@ -33,12 +33,13 @@ if gpus:
 # **Logging setup**
 
 # %%
+print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # %%
-os.environ["FIFTYONE_DEFAULT_DATASET_DIR"] = "/"
-fo.config.dataset_zoo_dir = "/"
+os.environ["FIFTYONE_DEFAULT_DATASET_DIR"] = "/datasets"
+fo.config.dataset_zoo_dir = "/datasets"
 
 # %% [markdown]
 # ### Data augmentation and preprocessing
