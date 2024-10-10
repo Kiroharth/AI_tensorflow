@@ -37,8 +37,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # %%
-os.environ["FIFTYONE_DEFAULT_DATASET_DIR"] = "/datasets"
-fo.config.dataset_zoo_dir = "/datasets"
+os.environ["FIFTYONE_DEFAULT_DATASET_DIR"] = "/"
+fo.config.dataset_zoo_dir = "/"
 
 # %% [markdown]
 # ### Data augmentation and preprocessing
