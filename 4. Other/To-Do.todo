@@ -8,9 +8,9 @@ How the Model will Work:
     6. User Recives Model's Predicted Lable and Nutriton values from the API call, API KEY and API ENDPOINT can be found in the API-Nutriton dir.
 
 Model-V3 Creation Parts:
-    ☐ Use Pytorch
-    ☐ Create Pytorch File
-    ☐ Make sure we are using the GPU
+    ✔ Use Pytorch @done (10/16/2024, 9:27:47 PM)
+    ✔ Create Pytorch File @done (10/16/2024, 9:27:48 PM)
+    ✔ Make sure we are using the GPU @done (10/16/2024, 9:39:05 PM)
     ☐ Load Dataset's
     ☐ Get the lables from the Dataset (Check if they are good and enough)
     ☐ Split Datasets into Train and Validation Data
