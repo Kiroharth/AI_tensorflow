@@ -1,0 +1,31 @@
+
+How the Model will Work:
+    1. Input = User Image / Picture
+    2. Model takes Image and scan's it
+    3. Model lables Images
+    4. Output = Lable of the food / food's 
+    5. Model makes an API call using the predicted Lable.
+    6. User Recives Model's Predicted Lable and Nutriton values from the API call, API KEY and API ENDPOINT can be found in the API-Nutriton dir.
+
+Model-V3 Creation Parts:
+    ☐ Use Pytorch
+    ☐ Create Pytorch File
+    ☐ Make sure we are using the GPU
+    ☐ Load Dataset's
+    ☐ Get the lables from the Dataset (Check if they are good and enough)
+    ☐ Split Datasets into Train and Validation Data
+    ☐ If needed combine the datasets
+    ☐ Set Image size for the Model training
+    ☐ Create Model
+    ☐ Load Model
+    ☐ Set Training Parameters
+    ☐ Train Model
+    ☐ Save Model's in a call back function so that we can go back to the Model / Epoch where the Precision of the model was the best.
+    ☐ Convert the Pytorch Model to a tflite Model as well so that we can use it in our APP.
+
+Model Train Run Road-Map:
+    ☐ Create a Model Training Pytorch programm.
+    ☐ Train Model with a small sup set of the Dataset
+    ☐ Create a Python Programm where we access the Model
+    ☐ Test the Model (Use the API Call Please)
+
