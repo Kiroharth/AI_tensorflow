@@ -1,0 +1,2 @@
+API_KEY = "hydUyBjWVdUlt1qNIeB2dKGgQYbjFiQwMjm6YpBn" 
+API_ENDPOINT = "https://api.nal.usda.gov/fdc/v1/foods/search"
