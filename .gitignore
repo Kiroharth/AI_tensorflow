@@ -3,3 +3,11 @@
 /fruits-360_dataset_original-size
 OpenImagesDatasetV7/Image_ids_and_rotation.csv
 tempCodeRunnerFile.python
+1. Model/data/cifar-10-python.tar.gz
+1. Model/data/cifar-10-batches-py/batches.meta
+1. Model/data/cifar-10-batches-py/data_batch_1
+1. Model/data/cifar-10-batches-py/data_batch_2
+1. Model/data/cifar-10-batches-py/data_batch_3
+1. Model/data/cifar-10-batches-py/data_batch_4
+1. Model/data/cifar-10-batches-py/data_batch_5
+1. Model/data/cifar-10-batches-py/test_batch
