@@ -1,3 +1,6 @@
+Notes:
+    1. MobileNetV2 architecture mb? 
+
 
 How the Model will Work:
     1. Input = User Image / Picture
@@ -11,6 +14,7 @@ Model-V3 Creation Parts:
     ✔ Use Pytorch @done (10/16/2024, 9:27:47 PM)
     ✔ Create Pytorch File @done (10/16/2024, 9:27:48 PM)
     ✔ Make sure we are using the GPU @done (10/16/2024, 9:39:05 PM)
+    ☐ Look trough the Other Model's dir, look for things in the Code that we can use.
     ☐ Load Dataset's
     ☐ Get the lables from the Dataset (Check if they are good and enough)
     ☐ Split Datasets into Train and Validation Data
@@ -22,6 +26,7 @@ Model-V3 Creation Parts:
     ☐ Train Model
     ☐ Save Model's in a call back function so that we can go back to the Model / Epoch where the Precision of the model was the best.
     ☐ Convert the Pytorch Model to a tflite Model as well so that we can use it in our APP.
+    ☐ GPU Utilization graph using Mathplot
 
 Model Train Run Road-Map:
     ☐ Create a Model Training Pytorch programm.
