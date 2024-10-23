@@ -5,9 +5,15 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
-import matplotlib.pyplot as plt  # Use matplotlib for image visualization
+import matplotlib.pyplot as plt 
 import numpy as np
 from termcolor import colored
+import pandas as pd
+import datetime
+import os
+import tensorflow_datasets as tfds
+import seaborn as sn
+
 
 #%% 
 # Functions to show an image using matplotlib
@@ -39,7 +45,8 @@ if __name__ == '__main__':
     testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
 
-    classes = ('food', 'rice', 'noodles', 'water')
+    classes = ('food containers','fruit and vegetables',)
+
 #%% 
     # Get some random training images
     dataiter = iter(trainloader)
@@ -48,10 +55,23 @@ if __name__ == '__main__':
     # Move images to GPU for any processing (if necessary)
     images = images.to('cuda')
 
-    # Show images using matplotlib (move to CPU before displaying)
-    imshow_matplotlib(torchvision.utils.make_grid(images.cpu()))  # Move back to CPU for imshow
+    i = 0
 
-    # Print labels
-    print(' '.join(f'{classes[labels[j]]:5s}' for j in range(batch_size)))
+    while labels != "fruit and vegetables":
 
-# %% 
+        dataiter = iter(trainloader)
+        images, labels = next(dataiter)
+        images = images.to('cuda')
+        print(i, colored(": Labels are not in the classes runing again", "red"))
+        i += 1
+
+    if labels == "fruit and vegetables":
+        print(colored("Success! found image", "green"))
+
+        # Show images using matplotlib (move to CPU before displaying)
+        imshow_matplotlib(torchvision.utils.make_grid(images.cpu()))  # Move back to CPU for imshow
+
+        # Print labels
+        print(' '.join(f'{classes[labels[j]]:5s}' for j in range(batch_size)))
+
+# %%

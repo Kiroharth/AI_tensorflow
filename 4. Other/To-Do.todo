@@ -20,6 +20,8 @@ Model-V3 Creation Parts:
     ☐ Split Datasets into Train and Validation Data
     ☐ If needed combine the datasets
     ☐ Set Image size for the Model training
+    ☐ Model should be able to predict the size of the meal or the portion size in gramms
+    ☐ Model should be able to identify the different components in the meal
     ☐ Create Model
     ☐ Load Model
     ☐ Set Training Parameters
